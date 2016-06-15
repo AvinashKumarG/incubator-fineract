@@ -77,6 +77,11 @@ public class SavingsAccountHelper {
     public Integer applyForSavingsApplication(final Integer ID, final Integer savingsProductID, final String accountType) {
         return applyForSavingsApplicationOnDate(ID, savingsProductID, accountType, CREATED_DATE);
     }
+    
+    public Integer applyForSavingsApplicationWithCompounding(final Integer ID, final Integer savingsProductID, final String accountType,
+            final String createdDate) {
+        return applyForSavingsApplicationOnDate(ID, savingsProductID, accountType, createdDate);
+    }
 
     public Integer applyForSavingsApplicationOnDate(final Integer ID, final Integer savingsProductID, final String accountType,
             final String submittedOnDate) {
@@ -146,6 +151,11 @@ public class SavingsAccountHelper {
         System.out.println("---------------------------------- ACTIVATING SAVINGS APPLICATION ----------------------------------");
         return performSavingApplicationActions(createSavingsOperationURL(ACTIVATE_SAVINGS_COMMAND, savingsID), getActivatedSavingsAsJSON());
     }
+    
+    public HashMap activateSavingsOnDate(final Integer savingsID, final String activationDate) {
+        System.out.println("---------------------------------- ACTIVATING SAVINGS APPLICATION ----------------------------------");
+        return performSavingApplicationActions(createSavingsOperationURL(ACTIVATE_SAVINGS_COMMAND, savingsID), getActivatedOnDateSavingsAsJSON(activationDate));
+   }
 
     public HashMap closeSavingsAccount(final Integer savingsID, String withdrawBalance) {
         System.out.println("---------------------------------- CLOSE SAVINGS APPLICATION ----------------------------------");
@@ -278,6 +288,16 @@ public class SavingsAccountHelper {
         String savingsAccountWithdrawalJson = new Gson().toJson(map);
         System.out.println(savingsAccountWithdrawalJson);
         return savingsAccountWithdrawalJson;
+    }
+    
+    private String getActivatedOnDateSavingsAsJSON(final String activatedOnDate) {
+        final HashMap<String, String> map = new HashMap<>();
+        map.put("locale", CommonConstants.locale);
+        map.put("dateFormat", CommonConstants.dateFormat);
+        map.put("activatedOnDate", activatedOnDate);
+        String savingsAccountActivateJson = new Gson().toJson(map);
+        System.out.println(savingsAccountActivateJson);
+        return savingsAccountActivateJson;
     }
 
     private String getCalculatedInterestForSavingsApplicationAsJSON() {

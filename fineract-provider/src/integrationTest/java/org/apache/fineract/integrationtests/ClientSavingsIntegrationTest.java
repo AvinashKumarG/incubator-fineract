@@ -317,6 +317,76 @@ public class ClientSavingsIntegrationTest {
         assertEquals("error.msg.saving.account.id.invalid", error.get(0).get(CommonConstants.RESPONSE_ERROR_MESSAGE_CODE));
 
     }
+    
+	@Test
+	public void testSavingsAccountCompoundingPeriodIsGreaterThanPostingPeriod() {
+		this.savingsAccountHelper = new SavingsAccountHelper(this.requestSpec, this.responseSpec);
+
+		final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec);
+		Assert.assertNotNull(clientID);
+		final String minBalanceForInterestCalculation = null;
+		final String minRequiredBalance = "1000.0";
+		final String minOpenningBalance = "1600";
+		final String enforceMinRequiredBalance = "true";
+		final boolean allowOverdraft = false;
+		Calendar createdDate = Calendar.getInstance();
+		createdDate.add(Calendar.MONTH, -5);
+		createdDate.set(Calendar.DAY_OF_MONTH, 1);
+		DateFormat dateFormat = new SimpleDateFormat("dd MMMM yyyy", Locale.US);
+		final String accountCreatedDate = dateFormat.format(createdDate.getTime());
+		System.out.println("createdDate " + createdDate.toString());
+		final String taxGroupId = null;
+		final boolean withDormancy = false;
+		final Integer savingsProductID = createSavingsProductWithCompoundingPeriod(this.requestSpec, this.responseSpec,
+				minOpenningBalance, minBalanceForInterestCalculation, minRequiredBalance, enforceMinRequiredBalance,
+				allowOverdraft, taxGroupId, withDormancy);
+
+		final Integer savingsId = this.savingsAccountHelper.applyForSavingsApplicationWithCompounding(clientID,
+				savingsProductID, ACCOUNT_TYPE_INDIVIDUAL, accountCreatedDate);
+		Assert.assertNotNull(savingsProductID);
+		
+		System.out.println("savingsId---> "+savingsId);
+
+		HashMap savingsStatusHashMap = SavingsStatusChecker.getStatusOfSavings(this.requestSpec, this.responseSpec,
+				savingsId);
+		SavingsStatusChecker.verifySavingsIsPending(savingsStatusHashMap);
+
+		savingsStatusHashMap = this.savingsAccountHelper.approveSavingsOnDate(savingsId, accountCreatedDate);
+		SavingsStatusChecker.verifySavingsIsApproved(savingsStatusHashMap);
+
+		savingsStatusHashMap = this.savingsAccountHelper.activateSavingsOnDate(savingsId, accountCreatedDate);
+		SavingsStatusChecker.verifySavingsIsActive(savingsStatusHashMap);
+
+		HashMap summary = this.savingsAccountHelper.getSavingsSummary(savingsId);
+		Float balance = new Float(minOpenningBalance);
+
+		this.savingsAccountHelper.postInterestForSavings(savingsId);
+		HashMap accountDetails = this.savingsAccountHelper.getSavingsDetails(savingsId);
+		summary = (HashMap) accountDetails.get("summary");
+		Float actualInterestPosted = Float.valueOf(summary.get("totalInterestPosted").toString());
+
+		final Float nominalAnnualInterest = Float.valueOf(accountDetails.get("nominalAnnualInterestRate").toString());
+		final HashMap interestCalculationDaysInYearType = (HashMap) accountDetails
+				.get("interestCalculationDaysInYearType");
+		final Integer daysInYear = Integer.valueOf(interestCalculationDaysInYearType.get("id").toString());
+		double interestRateInFraction = (nominalAnnualInterest / 100);
+		double perDay = (double) 1 / (daysInYear);
+		double interestPerDay = interestRateInFraction * perDay;
+		Float interestPosted = (float) (interestPerDay * balance * 91);
+
+		balance = balance + interestPosted;
+		interestPosted += (float) (interestPerDay * balance * 61);
+
+		DecimalFormat decimalFormat = new DecimalFormat("", new DecimalFormatSymbols(Locale.US));
+		decimalFormat.applyPattern("#.###");
+		interestPosted = new Float(decimalFormat.format(interestPosted));
+		actualInterestPosted = new Float(decimalFormat.format(actualInterestPosted));
+		assertEquals("Verifying interest posted", interestPosted, actualInterestPosted);
+
+		final Object savingsInterest = this.savingsAccountHelper.getSavingsInterest(savingsId);
+		Assert.assertNotNull(savingsInterest);
+
+	}
 
     @SuppressWarnings("unchecked")
     @Test
@@ -1070,6 +1140,35 @@ public class ClientSavingsIntegrationTest {
         final String savingsProductJSON = savingsProductHelper
                 //
                 .withInterestCompoundingPeriodTypeAsDaily()
+                //
+                .withInterestPostingPeriodTypeAsMonthly()
+                //
+                .withInterestCalculationPeriodTypeAsDailyBalance()
+                //
+                .withMinBalanceForInterestCalculation(minBalanceForInterestCalculation)
+                //
+                .withMinRequiredBalance(minRequiredBalance).withEnforceMinRequiredBalance(enforceMinRequiredBalance)
+                .withMinimumOpenningBalance(minOpenningBalance).withWithHoldTax(taxGroupId).build();
+        return SavingsProductHelper.createSavingsProduct(savingsProductJSON, requestSpec, responseSpec);
+    }
+    
+    private Integer createSavingsProductWithCompoundingPeriod(final RequestSpecification requestSpec,
+            final ResponseSpecification responseSpec, final String minOpenningBalance, String minBalanceForInterestCalculation,
+            String minRequiredBalance, String enforceMinRequiredBalance, final boolean allowOverdraft, final String taxGroupId,
+            boolean withDormancy) {
+        System.out.println("------------------------------CREATING NEW SAVINGS PRODUCT ---------------------------------------");
+        SavingsProductHelper savingsProductHelper = new SavingsProductHelper();
+        if (allowOverdraft) {
+            final String overDraftLimit = "2000.0";
+            savingsProductHelper = savingsProductHelper.withOverDraft(overDraftLimit);
+        }
+        if (withDormancy) {
+            savingsProductHelper = savingsProductHelper.withDormancy();
+        }
+
+        final String savingsProductJSON = savingsProductHelper
+                //
+                .withInterestCompoundingPeriodTypeAsQuaterly()
                 //
                 .withInterestPostingPeriodTypeAsMonthly()
                 //

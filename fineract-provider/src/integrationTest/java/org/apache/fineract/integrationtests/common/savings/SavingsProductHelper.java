@@ -165,6 +165,11 @@ public class SavingsProductHelper {
         this.interestCompoundingPeriodType = MONTHLY;
         return this;
     }
+    
+    public SavingsProductHelper withInterestCompoundingPeriodTypeAsQuaterly() {
+        this.interestCompoundingPeriodType = QUARTERLY;
+        return this;
+    }
 
     public SavingsProductHelper withInterestPostingPeriodTypeAsMonthly() {
         this.interestPostingPeriodType = MONTHLY;
